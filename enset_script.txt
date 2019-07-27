@@ -1,0 +1,153 @@
+#################################
+# Enset production mapping script
+# James Borrell
+#################################
+
+library("rgeos")
+library("readr")
+
+# ---------------------------
+#### annual yield plot ####
+# ---------------------------
+
+annual_yield_data <- read_delim("path") #import Supplementary table 1
+
+setwd("C:/Users/Folder")
+
+jpeg("plot.jpeg", width = 7.9, height = 5.4, units = "in", res = 900)
+
+#prepare data
+yr <- rev(annual_yield_data$year)
+yld <- rev(annual_yield_data$total_yield)
+ha <- rev(annual_yield_data$total_ha/1000)
+
+par(mfrow=c(1,1), mar=c(6,5,3.5,4))
+
+# add first set of data
+with(annual_yield_data, plot(rev(year)[1:19], rev(annual_yield_data$total_ha/1000)[1:19], type='b', lwd=2,
+                             xlab=NA, ylab=NA, ylim=c(0,400),xlim=c(1996,2018),xaxt='n',yaxt='n',
+                             lty=1))
+
+# plot axes
+ticks <- seq(from=1996, to=2018, by=2)
+axis(1, las=1, at=ticks, labels=ticks)
+ticks <- seq(from=0, to=400, by=100)
+axis(2, las=1, at=ticks, labels=ticks)
+
+# add second set of data
+par(new = T)
+with(annual_yield_data, plot(rev(year), rev(annual_yield_data$total_yield), ylim=c(0,10), type='b',
+                             pch=15, axes=F, xlab=NA, ylab=NA, cex=1, lty=1, lwd=2))
+
+ticks <- seq(from=0, to=10, by=2)
+axis(4, las=1, at=ticks, labels=ticks)
+
+mtext("Year", 1, line=2.5)
+mtext("Hectares in production ('000)", 2, line=2.9)
+mtext("Yield (MTons)", 4, line=2.4)
+
+legend(1996,2, c("Hectares", "Yield"), pch=c(21,15), col="black", bty = "n", pt.bg=c("white"),
+       lty=c(1,1), lwd=2)
+       
+dev.off()
+
+
+# -------------------------------------------
+#### production trends mapping plot 1 ####
+# -------------------------------------------
+
+# import appropriate Ethiopia national and regional maps
+
+zonal_yield <- read_delim("path") #import Supplementary table 2
+
+ETHIOPIA_0 <- readRDS("path/ETH_adm0.rds") #available from https://gadm.org/
+ETHIOPIA_1 <- readRDS("path/ETH_adm1.rds") #available fromhttps://gadm.org/
+ETHIOPIA_2 <- readRDS("path/ETH_adm2.rds") #available fromhttps://gadm.org/
+
+# region subsetting and name matching
+ETHIOPIA_2_region <- ETHIOPIA_2[c(1,24:26,28:44,54:75),]
+VEC <- match(zonal_yield$GADM_name, ETHIOPIA_2_region$NAME_2, nomatch = NA_integer_, incomparables = NULL)
+ETHIOPIA_2_SUBSET <- ETHIOPIA_2_region[VEC,]
+
+# set up plotting area
+par(mfrow=c(1,1), mar=c(2,1,1,1))
+
+# colours
+red_alpha <- adjustcolor("red",alpha.f=0.6)
+blue_alpha <- adjustcolor("blue",alpha.f=0.2)
+blue_alpha2 <- adjustcolor("blue",alpha.f=0.6)
+yellow_alpha <- adjustcolor("yellow",alpha.f=0.2)
+green_alpha <- adjustcolor("green",alpha.f=0.2)
+purple_alpha <- adjustcolor("purple",alpha.f=0.2)
+
+
+# base plot
+plot(ETHIOPIA_1[c(1,6,8,10),], lwd=2)
+
+# colour sections
+plot(ETHIOPIA_1[6,], lwd=2, col=blue_alpha, add=T)
+plot(ETHIOPIA_1[8,], lwd=2, col=yellow_alpha, add=T)
+plot(ETHIOPIA_1[10,], lwd=2, col=green_alpha, add=T)
+plot(ETHIOPIA_1[1,], lwd=2, col=purple_alpha, add=T)
+
+plot(ETHIOPIA_2_SUBSET, add=T) # need to do all districts really
+points(centroids_subset, bg = red_alpha, col = NA , pch = 21, cex=sqrt(zonal_yield$corrected_current_by_area/6000), lwd=0) #6000 is an arbitary value to adjust points to appropriate size for the map
+
+# add labels
+polygonsLabel(ETHIOPIA_2_SUBSET, labels = zonal_yield$plot_name, cex=0.7,
+              method = "buffer")
+
+#scale bar
+scalebar(200, type="bar", xy=c(41, 3.5), cex=0.7, below="Km")
+
+#legend
+text(33.43, 4.95, "Regions", cex=0.9, font=2)
+legend(x=33, y=4.9, legend=c("Gambella", "Oromia", "S.N.N.P.R.", "Addis Ababa"),pch=c(15),
+          col=c(blue_alpha,yellow_alpha, green_alpha, purple_alpha),
+           cex=1,bty="n",pt.cex=2.5, y.intersp=1.2, x.intersp=1.5)
+
+text(33.43 ,7.05, "Hectares", cex=0.9, font=2)
+legend(x=33, y=7, legend=c("1,000","10,000", "50,000", "200,000"),pch=16,
+       bg=red_alpha, col=red_alpha,
+       pt.cex=c(vec2),bty="n", y.intersp=c(1.2,1.2,1.3,1.5), x.intersp=1.6)
+	   
+# -------------------------------------------
+#### production trends mapping plot 2 ####
+# -------------------------------------------
+#par(mfrow=c(1,1), mar=c(2,1,1,1))
+
+# base plot
+plot(ETHIOPIA_1[c(1,6,8,10),], lwd=2)
+
+# colour sections
+plot(ETHIOPIA_1[6,], lwd=2, col=blue_alpha, add=T)
+plot(ETHIOPIA_1[8,], lwd=2, col=yellow_alpha, add=T)
+plot(ETHIOPIA_1[10,], lwd=2, col=green_alpha, add=T)
+plot(ETHIOPIA_1[1,], lwd=2, col=purple_alpha, add=T)
+
+positive <- which(zonal_yield$DELTA>0)
+negative <- which(zonal_yield$DELTA<0)
+
+positive_vals <- zonal_yield[which(zonal_yield$corrected_delta_by_area>0),]
+negative_vals <- zonal_yield[which(zonal_yield$corrected_delta_by_area<0),]
+
+pos_data <- positive_vals$corrected_delta_by_area
+neg_data <- negative_vals$corrected_delta_by_area
+
+pos_points <- centroids_subset[positive,]
+neg_points <- centroids_subset[negative,]
+
+points(pos_points, bg = red_alpha, col = NA , pch = 24, cex=sqrt(pos_data/4500), lwd=0) #4500 is an arbitary value to scale points as required to fit the map.
+points(neg_points, bg = blue_alpha2, col = NA , pch = 25, cex=sqrt(abs(neg_data/4500)), lwd=0)
+
+polygonsLabel(ETHIOPIA_2_SUBSET, labels = zonal_yield$plot_name, cex=0.7, method = "buffer")
+
+scalebar(200, type="bar", xy=c(41, 3.5), cex=0.7, below="Km")
+
+text(33.43 ,6.5, "Change in \nHectares", cex=0.9, font=2)
+legend(x=33, y=6.4, legend=c("+1,000","+10,000", "+100,000"),pch=17,
+       bg=red_alpha, col=red_alpha,
+       pt.cex=c(vec3),bty="n", y.intersp=c(1.2,1.4,1.6), x.intersp=1.6)
+legend(x=33, y=5.1, legend=c("-1,000","-10,000", "-100,000"),pch=25,
+       pt.bg=blue_alpha2, col=blue_alpha2,
+       pt.cex=c(vec3),bty="n", y.intersp=c(1.2,1.4,1.6), x.intersp=1.6)
